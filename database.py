@@ -1,16 +1,15 @@
 import sqlite3
+import random
 
 def connect_db():
-    """Connect to the database and create the users table if it doesn't exist."""
     conn = sqlite3.connect('Systemdb.db')
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON;")
-    
-    # Create the users table if it doesn't exist
+
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, 
-        name TEXT NOT NULL, 
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL
     );
     """)
@@ -18,15 +17,29 @@ def connect_db():
     conn.close()
 
 def insert_user(username, password):
-    """Insert a new user into the users table."""
     try:
         conn = sqlite3.connect('Systemdb.db')
         cursor = conn.cursor()
-        cursor.execute("INSERT INTO users (name, password) VALUES (?, ?)", (username, password))
-        conn.commit()  # Commit the changes to save the new user
-        print("User inserted successfully.")  # Confirm data insertion
+
+        cursor.execute("SELECT COUNT(*) FROM users WHERE username = ?", (username,))
+        if cursor.fetchone()[0] > 0:
+            raise ValueError("Username already exists. Please choose a different one.")
+
+        random_id = random.randint(10000, 99999)  # Generates a 5-digit random ID
+        cursor.execute("INSERT INTO users (id, username, password) VALUES (?, ?, ?)", (random_id, username, password))
+        conn.commit()
+        return random_id  # Return generated ID
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
         raise
     finally:
-        conn.close()  # Ensure the connection is closed
+        conn.close()
+
+def validate_user(username, password):
+    try:
+        conn = sqlite3.connect('Systemdb.db')
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, password))
+        user = cursor.fetchone()
+        return bool(user)
+    finally:
+        conn.close()
